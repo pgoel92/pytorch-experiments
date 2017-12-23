@@ -58,6 +58,7 @@ def train(rnn, criterion, learning_rate, input_tensor, target_tensor):
 
 def readData():
     lines = open('input.txt', encoding='utf-8').readlines()
+    lines = [line.strip() for line in lines]
     lines = [line.lower() for line in lines]
     words = ' '.join(lines).split()
     word_dict = {}
@@ -89,7 +90,7 @@ def lineToTensor(line):
     #target_tensor = listToTensor(word_tensors[1:len(word_tensors)] + [encode_word('<end>')])
     target_tensor = torch.LongTensor([vocab[word] for word in words] + [vocab['<end>']])
 
-    return input_tensor, target_tensor
+    return Variable(input_tensor), Variable(target_tensor)
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -97,31 +98,31 @@ def randomChoice(l):
 def randomTrainingExample(lines):
     line = randomChoice(lines)
     input_line_tensor, target_line_tensor = lineToTensor(line)
-    input_line_tensor = Variable(input_line_tensor)
-    target_line_tensor = Variable(target_line_tensor)
 
     return input_line_tensor, target_line_tensor
 
 def main():
     lines, vocab_size = readData()
+    print("Vocabulary size : " + str(vocab_size))
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = RNN(vocab_size, 256, vocab_size)
+    rnn = RNN(vocab_size, 128, vocab_size)
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.005
+    learning_rate = 0.2
 
     running_loss = 0
-    num_iterations = 10000
-    print_every = 50
+    num_iterations = 3000
+    print_every = len(lines)
     for i in range(num_iterations):
-        input_tensor, target_tensor = randomTrainingExample(lines)
+        input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
         output, loss = train(rnn, criterion, learning_rate, input_tensor, target_tensor)
 
         running_loss += loss
 
         if i % print_every == 0:
-            print('(%d %d%%) %.4f' % (i, i / num_iterations * 100, loss))
+            print('(%d %d%%) %.4f' % (i, i / float(num_iterations) * 100, running_loss))
+            running_loss = 0
 
     with open('model.pt', 'wb') as f:
         torch.save(rnn, f)

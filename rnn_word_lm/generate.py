@@ -60,11 +60,13 @@ inverted_vocab = invert_vocab(vocab)
 vocab_size = len(vocab.keys())
 hidden = model.initHidden()
 start_tensor = torch.zeros(1, vocab_size)
-start_tensor[0][vocab['<end>']] = 1
+start_tensor[0][vocab['<start>']] = 1
 input = Variable(start_tensor)
+output, hidden = model(input, hidden)
+input = Variable(encode_word('fish', vocab))
 
 output_words = []
-max_len = 51
+max_len = 100
 for i in range(max_len):
     output, hidden = model(input, hidden)
     topv, topi = output.data.topk(1)
