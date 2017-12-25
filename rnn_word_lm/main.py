@@ -5,28 +5,7 @@ import torch
 import torch.nn as nn
 import random 
 import pickle
-
-class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(RNN, self).__init__()
-
-        self.hidden_size = hidden_size
-
-        self.lin_xh = nn.Linear(input_size, hidden_size)
-        self.lin_hh = nn.Linear(hidden_size, hidden_size)
-        self.sigmoid = nn.Sigmoid()
-        self.lin_ho = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax()
-
-    def forward(self, input, hidden):
-        self.hidden = self.sigmoid(self.lin_xh(input) + self.lin_hh(hidden))
-        self.output = self.lin_ho(self.hidden)
-        self.output = self.softmax(self.output)
-
-        return self.output, self.hidden
-
-    def initHidden(self):
-        return Variable(torch.zeros(1, self.hidden_size))
+import model
 
 vocab = {}
 def encode_word(word):
@@ -40,21 +19,20 @@ def encode_word(word):
     return word_tensor
 
 def train(rnn, criterion, learning_rate, input_tensor, target_tensor):
-    prev_hidden = rnn.initHidden()
+    hidden = rnn.initHidden()
 
     rnn.zero_grad()
     loss = 0
 
-    for i in range(input_tensor.size()[0]):
-        output, prev_hidden = rnn.forward(input_tensor[i], prev_hidden)
-        loss += criterion(output, target_tensor[i])
+    outputs, hidden = rnn.forward(input_tensor, hidden, input_tensor.size()[0])
+    loss = criterion(outputs.squeeze(), target_tensor)
 
     loss.backward()
 
     for p in rnn.parameters():
         p.data.add_(-learning_rate, p.grad.data)
 
-    return output, loss.data[0]
+    return outputs, loss.data[0]
 
 def readData():
     lines = open('input.txt', encoding='utf-8').readlines()
@@ -107,21 +85,21 @@ def main():
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = RNN(vocab_size, 128, vocab_size)
+    rnn = model.RNN(vocab_size, 128, vocab_size)
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.2
+    learning_rate = 0.5
 
     running_loss = 0
-    num_iterations = 3000
-    print_every = len(lines)
+    num_iterations = 10000
+    print_every = num_iterations/50
     for i in range(num_iterations):
         input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
-        output, loss = train(rnn, criterion, learning_rate, input_tensor, target_tensor)
+        outputs, loss = train(rnn, criterion, learning_rate, input_tensor, target_tensor)
 
         running_loss += loss
 
         if i % print_every == 0:
-            print('(%d %d%%) %.4f' % (i, i / float(num_iterations) * 100, running_loss))
+            print('(%d %d%%) %.4f' % (i, i / float(num_iterations) * 100, running_loss/print_every))
             running_loss = 0
 
     with open('model.pt', 'wb') as f:
