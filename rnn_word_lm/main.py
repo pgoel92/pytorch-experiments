@@ -6,6 +6,7 @@ import torch.nn as nn
 import random 
 import pickle
 import model
+import math
 
 vocab = {}
 def encode_word(word):
@@ -22,7 +23,6 @@ def train(rnn, criterion, learning_rate, input_tensor, target_tensor):
     hidden = rnn.initHidden()
 
     rnn.zero_grad()
-    loss = 0
 
     outputs, hidden = rnn.forward(input_tensor, hidden, input_tensor.size()[0])
     loss = criterion(outputs.squeeze(), target_tensor)
@@ -53,10 +53,24 @@ def readData():
 
     vocab['<start>'] = i + 1 
     vocab['<end>'] = i + 2
-
-    vocab_size = i + 3
-
+    vocab['<unk>'] = i + 3
+    vocab_size = i + 4
     return lines, vocab_size
+
+def is_unknown(word):
+    return word if word in vocab else '<unk>'
+
+def replace_unknown(line):
+    words = line.split()
+    words = [is_unknown(word) for word in words] 
+    return ' '.join(words)
+
+def readTestData():
+    lines = open('test.txt', encoding='utf-8').readlines()
+    lines = [line.strip() for line in lines]
+    lines = [line.lower() for line in lines]
+    lines = [replace_unknown(line) for line in lines]
+    return lines
 
 def listToTensor(ls):
     return torch.stack(ls)
@@ -65,7 +79,6 @@ def lineToTensor(line):
     words = line.split()
     word_tensors = map(encode_word, words)
     input_tensor = listToTensor([encode_word('<start>')] + word_tensors[:len(word_tensors)])
-    #target_tensor = listToTensor(word_tensors[1:len(word_tensors)] + [encode_word('<end>')])
     target_tensor = torch.LongTensor([vocab[word] for word in words] + [vocab['<end>']])
 
     return Variable(input_tensor), Variable(target_tensor)
@@ -79,6 +92,20 @@ def randomTrainingExample(lines):
 
     return input_line_tensor, target_line_tensor
 
+def evaluate(rnn, criterion):
+    test_lines = readTestData()
+    total_loss = 0
+    for line in test_lines:
+        input_tensor, target_tensor = lineToTensor(line) 
+
+        hidden = rnn.initHidden()
+
+        outputs, hidden = rnn.forward(input_tensor, hidden, input_tensor.size()[0])
+        loss = criterion(outputs.squeeze(), target_tensor).data[0]
+        total_loss += loss
+
+    return total_loss/len(test_lines)
+
 def main():
     lines, vocab_size = readData()
     print("Vocabulary size : " + str(vocab_size))
@@ -90,7 +117,7 @@ def main():
     learning_rate = 0.5
 
     running_loss = 0
-    num_iterations = 10000
+    num_iterations = 1000
     print_every = num_iterations/50
     for i in range(num_iterations):
         input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
