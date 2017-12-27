@@ -47,15 +47,21 @@ def readData():
         else:
             word_dict[word] += 1
 
+    max_vocab_size = 6000
     words_sorted_alphabetically = sorted(word_dict.iteritems(), key = lambda x: x[0])
+    words_sorted_by_count = sorted(word_dict.iteritems(), key = lambda x: x[1], reverse=True)
 
-    for i in range(len(words_sorted_alphabetically)):
-        vocab[words_sorted_alphabetically[i][0]] = i
+    i = 0
+    for word, frequency in words_sorted_by_count[:min(max_vocab_size, len(words_sorted_by_count))]:
+        vocab[word] = i
+        i += 1
 
-    vocab['<start>'] = i + 1 
-    vocab['<end>'] = i + 2
-    vocab['<unk>'] = i + 3
-    vocab_size = i + 4
+    lines = [replace_unknown(line) for line in lines]
+
+    vocab['<start>'] = i 
+    vocab['<end>'] = i + 1
+    vocab['<unk>'] = i + 2
+    vocab_size = i + 3
     return lines, vocab_size
 
 def is_unknown(word):
@@ -65,13 +71,6 @@ def replace_unknown(line):
     words = line.split()
     words = [is_unknown(word) for word in words] 
     return ' '.join(words)
-
-def readTestData():
-    lines = open('test.txt', encoding='utf-8').readlines()
-    lines = [line.strip() for line in lines]
-    lines = [line.lower() for line in lines]
-    lines = [replace_unknown(line) for line in lines]
-    return lines
 
 def listToTensor(ls):
     return torch.stack(ls)
@@ -93,20 +92,6 @@ def randomTrainingExample(lines):
 
     return input_line_tensor, target_line_tensor
 
-def evaluate(rnn, criterion):
-    test_lines = readTestData()
-    total_loss = 0
-    for line in test_lines:
-        input_tensor, target_tensor = lineToTensor(line) 
-
-        hidden = rnn.initHidden()
-
-        outputs, hidden = rnn.forward(input_tensor, hidden, input_tensor.size()[0])
-        loss = criterion(outputs.squeeze(), target_tensor).data[0]
-        total_loss += loss
-
-    return total_loss/len(test_lines)
-
 def get_readable_time(secs):
     if secs > 3600*24:
         return str(secs/3600*24) + "days"
@@ -124,10 +109,10 @@ def main():
 
     rnn = model.RNN(vocab_size, 128, vocab_size)
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.5
+    learning_rate = 0.1
 
     running_loss = 0
-    num_iterations = 10000
+    num_iterations = 1000
     print_every = num_iterations/50
     start_time = timeit.default_timer()
     for i in range(num_iterations):
