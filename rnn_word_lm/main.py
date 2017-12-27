@@ -7,6 +7,7 @@ import random
 import pickle
 import model
 import math
+import timeit
 
 vocab = {}
 def encode_word(word):
@@ -106,6 +107,15 @@ def evaluate(rnn, criterion):
 
     return total_loss/len(test_lines)
 
+def get_readable_time(secs):
+    if secs > 3600*24:
+        return str(secs/3600*24) + "days"
+    if secs > 3600:
+        return str(secs/3600) + "hrs"
+    if secs > 60:
+        return str(secs/60) + "mins"
+    return str(secs) + "s"
+
 def main():
     lines, vocab_size = readData()
     print("Vocabulary size : " + str(vocab_size))
@@ -117,16 +127,19 @@ def main():
     learning_rate = 0.5
 
     running_loss = 0
-    num_iterations = 1000
+    num_iterations = 10000
     print_every = num_iterations/50
+    start_time = timeit.default_timer()
     for i in range(num_iterations):
         input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
         outputs, loss = train(rnn, criterion, learning_rate, input_tensor, target_tensor)
 
         running_loss += loss
 
-        if i % print_every == 0:
+        if i > 0 and i % print_every == 0:
+            elapsed = timeit.default_timer() - start_time
             print('(%d %d%%) %.4f' % (i, i / float(num_iterations) * 100, running_loss/print_every))
+            print('Time elapsed : %s, Projected training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/i)*num_iterations))))
             running_loss = 0
 
     with open('model.pt', 'wb') as f:
