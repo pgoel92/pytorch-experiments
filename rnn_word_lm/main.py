@@ -20,20 +20,24 @@ def encode_word(word):
 
     return word_tensor
 
-def train(rnn, criterion, learning_rate, input_tensor, target_tensor):
-    hidden = rnn.initHidden()
+def repackage_hidden(h):
+    """Wraps hidden states in new Variables, to detach them from their history."""
+    return Variable(h.data)
 
+def train(rnn, hidden, criterion, learning_rate, input_tensor, target_tensor):
     rnn.zero_grad()
 
+    hidden = repackage_hidden(hidden)
     outputs, hidden = rnn.forward(input_tensor, hidden, input_tensor.size()[0])
     loss = criterion(outputs.squeeze(), target_tensor)
 
     loss.backward()
 
+    torch.nn.utils.clip_grad_norm(rnn.parameters(), 0.25)
     for p in rnn.parameters():
         p.data.add_(-learning_rate, p.grad.data)
 
-    return outputs, loss.data[0]
+    return outputs, loss.data[0], hidden
 
 def readData():
     lines = open('input.txt', encoding='utf-8').readlines()
@@ -47,7 +51,7 @@ def readData():
         else:
             word_dict[word] += 1
 
-    max_vocab_size = 6000
+    max_vocab_size = 20000
     words_sorted_alphabetically = sorted(word_dict.iteritems(), key = lambda x: x[0])
     words_sorted_by_count = sorted(word_dict.iteritems(), key = lambda x: x[1], reverse=True)
 
@@ -112,20 +116,24 @@ def main():
     learning_rate = 0.1
 
     running_loss = 0
-    num_iterations = 1000
-    print_every = num_iterations/50
+    num_epochs = 1
+    num_iterations = len(lines)
+    print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
-    for i in range(num_iterations):
-        input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
-        outputs, loss = train(rnn, criterion, learning_rate, input_tensor, target_tensor)
+    hidden = rnn.initHidden()
+    for e in range(num_epochs):
+        for i in range(num_iterations):
+            input_tensor, target_tensor = lineToTensor(lines[i%len(lines)])
+            outputs, loss, hidden = train(rnn, hidden, criterion, learning_rate, input_tensor, target_tensor)
 
-        running_loss += loss
+            # print(str(loss) + " # " + lines[i%len(lines)])
+            running_loss += loss
 
-        if i > 0 and i % print_every == 0:
-            elapsed = timeit.default_timer() - start_time
-            print('(%d %d%%) %.4f' % (i, i / float(num_iterations) * 100, running_loss/print_every))
-            print('Time elapsed : %s, Projected training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/i)*num_iterations))))
-            running_loss = 0
+            if i > 0 and i % print_every == 0:
+                elapsed = timeit.default_timer() - start_time
+                print('Epoch %d : (%d %d%%) %.4f' % (e, i + 1, (i + 1) / float(num_iterations) * 100, running_loss/print_every))
+                print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
+                running_loss = 0
 
     with open('model.pt', 'wb') as f:
         torch.save(rnn, f)
