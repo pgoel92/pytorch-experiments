@@ -113,10 +113,10 @@ def main():
 
     rnn = model.RNN(vocab_size, 128, vocab_size)
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.1
+    learning_rate = 0.75
 
     running_loss = 0
-    num_epochs = 1
+    num_epochs = 10000
     num_iterations = len(lines)
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
@@ -129,14 +129,14 @@ def main():
             # print(str(loss) + " # " + lines[i%len(lines)])
             running_loss += loss
 
-            if i > 0 and i % print_every == 0:
-                elapsed = timeit.default_timer() - start_time
-                print('Epoch %d : (%d %d%%) %.4f' % (e, i + 1, (i + 1) / float(num_iterations) * 100, running_loss/print_every))
-                print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
-                running_loss = 0
+        elapsed = timeit.default_timer() - start_time
+        print('Epoch %d : %.4f' % (e, running_loss/num_iterations))
+        #print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
+        print('Time elapsed : %s' % (get_readable_time(int(elapsed))))
+        running_loss = 0
 
-    with open('model.pt', 'wb') as f:
-        torch.save(rnn, f)
+        with open('model.pt', 'wb') as f:
+            torch.save(rnn, f)
 
 
 main()
