@@ -97,13 +97,23 @@ def randomTrainingExample(lines):
     return input_line_tensor, target_line_tensor
 
 def get_readable_time(secs):
-    if secs > 3600*24:
-        return str(secs/3600*24) + "days"
-    if secs > 3600:
-        return str(secs/3600) + "hrs"
-    if secs > 60:
-        return str(secs/60) + "mins"
-    return str(secs) + "s"
+    readable_time = ""
+    if secs >= 3600*24:
+        days = secs/(3600*24)
+        readable_time += str(days) + "days"
+        secs -= 3600*24*days
+    if secs >= 3600:
+        hrs = secs/3600
+        readable_time += " " + str(hrs) + "hrs"
+        secs -= 3600*hrs
+    if secs >= 60:
+        mins = secs/60
+        readable_time += " " + str(mins) + "mins"
+        secs -= 60*mins
+    if secs > 0:
+        readable_time += " " + str(secs) + "s"
+
+    return readable_time.strip()
 
 def main():
     lines, vocab_size = readData()
