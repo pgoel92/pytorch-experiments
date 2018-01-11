@@ -12,6 +12,11 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import model
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--prefix')
+args = parser.parse_args()
 
 def invert_vocab(vocab):
     inverted_vocab = {}
@@ -45,7 +50,7 @@ with open('vocab.pickle', 'rb') as handle:
 inverted_vocab = invert_vocab(vocab)
 vocab_size = len(vocab.keys())
 hidden = model.initHidden()
-sentence_beginning = ''
+sentence_beginning = args.prefix
 words = ('<start> ' + sentence_beginning).split()
 for word in words:
     input_tensor = encode_word(word, vocab)
