@@ -27,13 +27,13 @@ def invert_vocab(vocab):
 
 def encode_word(word, vocab):
     vocab_size = len(vocab.keys())
-    word_tensor = torch.zeros(1, 1, vocab_size)
+    word_tensor = torch.zeros(1, vocab_size)
     if word not in vocab:
-        word_tensor[0][0][vocab_size - 1] = 1
+        word_tensor[0][vocab_size - 1] = 1
     else:
-        word_tensor[0][0][vocab[word]] = 1
+        word_tensor[0][vocab[word]] = 1
 
-    return Variable(word_tensor)
+    return word_tensor
 
 def decode_word(output, inverted_vocab):
     topv, topi = output.data.topk(1)
@@ -52,19 +52,27 @@ vocab_size = len(vocab.keys())
 hidden = model.initHidden()
 sentence_beginning = args.prefix
 words = ('<start> ' + sentence_beginning).split()
+try:
+    mini_batch_size = model.mini_batch_size
+except AttributeError:
+    mini_batch_size = 1
 for word in words:
     input_tensor = encode_word(word, vocab)
-    outputs, hidden = model(input_tensor, hidden, input_tensor.size()[0])
-    word = decode_word(outputs[0], inverted_vocab)
+    input_list = [input_tensor for i in range(mini_batch_size)]
+    input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
+    outputs, hidden = model(input_batch, hidden, input_batch.size()[0])
+    word = decode_word(outputs[0][0].view(1, outputs.size()[2]), inverted_vocab)
 
 decoded_sentence = sentence_beginning.split()
-max_len = 100
+max_len = 500
 i = 0
 while word != '<end>' and i < max_len:
     decoded_sentence.append(word)
     input_tensor = encode_word(word, vocab)
-    outputs, hidden = model(input_tensor, hidden, input_tensor.size()[0])
-    word = decode_word(outputs[0], inverted_vocab)
+    input_list = [input_tensor for j in range(mini_batch_size)]
+    input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
+    outputs, hidden = model(input_batch, hidden, input_batch.size()[0])
+    word = decode_word(outputs[0][0].view(1, outputs.size()[2]), inverted_vocab)
     i += 1
 
 print ' '.join(decoded_sentence)

@@ -10,7 +10,8 @@ import math
 import timeit
 
 MAX_VOCAB_SIZE = 20000
-mini_batch_size = 250 
+NUM_TOKENS = 5
+mini_batch_size = 20
 
 vocab = {}
 def encode_word(word):
@@ -90,14 +91,15 @@ def lineToTensor(line):
 
 def get_batch(lines, batch_number, vocab_size):
     batch_lines = lines[batch_number * 5:batch_number * 5 + mini_batch_size]
-    input_batch = torch.zeros(mini_batch_size, 21, vocab_size)
-    target_batch = torch.zeros(mini_batch_size, 21).type(torch.LongTensor)
+    # The number of steps is NUM_TOKENS + 1 because of <start> and <end> being appended to each input and target sequence respectively
+    input_batch = torch.zeros(mini_batch_size, NUM_TOKENS + 1, vocab_size)
+    target_batch = torch.zeros(mini_batch_size, NUM_TOKENS + 1).type(torch.LongTensor)
     for i in range(mini_batch_size):
         input, target = lineToTensor(batch_lines[i])
         input_batch[i] = input.squeeze()
         target_batch[i] = target
 
-    return Variable(input_batch.view(21, mini_batch_size, vocab_size)), Variable(target_batch.view(21, mini_batch_size))
+    return Variable(input_batch.view(NUM_TOKENS + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(NUM_TOKENS + 1, mini_batch_size))
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -135,10 +137,10 @@ def main():
 
     rnn = model.RNN(vocab_size, 128, vocab_size, mini_batch_size)
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.75
+    learning_rate = 0.2
 
     running_loss = 0
-    num_epochs = 10000
+    num_epochs = 1000
     num_iterations = len(lines) / mini_batch_size
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
