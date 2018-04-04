@@ -5,13 +5,18 @@ import torch
 import torch.nn as nn
 import random 
 import pickle
-import model
+import inbuilt_rnn_model as model
 import math
 import timeit
+import argparse
 
 MAX_VOCAB_SIZE = 20000
-NUM_TOKENS = 5
 mini_batch_size = 20
+
+parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
+parser.add_argument('--cuda', action='store_true',
+                    help='use CUDA')
+args = parser.parse_args()
 
 vocab = {}
 def encode_word(word):
@@ -89,17 +94,17 @@ def lineToTensor(line):
 
     return input_tensor, target_tensor
 
-def get_batch(lines, batch_number, vocab_size):
-    batch_lines = lines[batch_number * 5:batch_number * 5 + mini_batch_size]
-    # The number of steps is NUM_TOKENS + 1 because of <start> and <end> being appended to each input and target sequence respectively
-    input_batch = torch.zeros(mini_batch_size, NUM_TOKENS + 1, vocab_size)
-    target_batch = torch.zeros(mini_batch_size, NUM_TOKENS + 1).type(torch.LongTensor)
+def get_batch(lines, batch_number, num_tokens, vocab_size):
+    batch_lines = lines[batch_number * mini_batch_size:(batch_number + 1) * mini_batch_size]
+    # The number of steps is num_tokens + 1 because of <start> and <end> being appended to each input and target sequence respectively
+    input_batch = torch.zeros(mini_batch_size, num_tokens + 1, vocab_size)
+    target_batch = torch.zeros(mini_batch_size, num_tokens + 1).type(torch.LongTensor)
     for i in range(mini_batch_size):
         input, target = lineToTensor(batch_lines[i])
         input_batch[i] = input.squeeze()
         target_batch[i] = target
 
-    return Variable(input_batch.view(NUM_TOKENS + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(NUM_TOKENS + 1, mini_batch_size))
+    return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -135,19 +140,25 @@ def main():
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = model.RNN(vocab_size, 128, vocab_size, mini_batch_size)
+    rnn = model.myRNN(vocab_size, 20, vocab_size, mini_batch_size)
+    if args.cuda:
+        rnn.cuda()
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.2
+    learning_rate = 0.4
 
     running_loss = 0
-    num_epochs = 1000
+    num_epochs = 2000
     num_iterations = len(lines) / mini_batch_size
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
     hidden = rnn.initHidden()
+    num_tokens = len(lines[0].split())
     for e in range(num_epochs):
         for i in range(num_iterations):
-            input_batch, target_batch = get_batch(lines, i, vocab_size)
+            input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size)
+            if args.cuda:
+                input_batch = input_batch.cuda()
+                target_batch = target_batch.cuda()
             outputs, loss, hidden = train(rnn, hidden, criterion, learning_rate, input_batch, target_batch)
 
             # print(str(loss) + " # " + lines[i%len(lines)])

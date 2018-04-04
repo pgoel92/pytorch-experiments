@@ -42,16 +42,16 @@ def lineToTensor(line, vocab):
 
     return input_tensor, target_tensor
 
-def get_batch(lines, batch_number, mini_batch_size, vocab_size, vocab):
-    batch_lines = lines[batch_number * 5:batch_number * 5 + mini_batch_size]
-    input_batch = torch.zeros(mini_batch_size, 21, vocab_size)
-    target_batch = torch.zeros(mini_batch_size, 21).type(torch.LongTensor)
+def get_batch(lines, batch_number, mini_batch_size, num_tokens, vocab_size, vocab):
+    batch_lines = lines[batch_number * mini_batch_size:(batch_number + 1) * mini_batch_size]
+    input_batch = torch.zeros(mini_batch_size, num_tokens + 1, vocab_size)
+    target_batch = torch.zeros(mini_batch_size, num_tokens + 1).type(torch.LongTensor)
     for i in range(mini_batch_size):
         input, target = lineToTensor(batch_lines[i], vocab)
         input_batch[i] = input.squeeze()
         target_batch[i] = target
 
-    return Variable(input_batch.view(21, mini_batch_size, vocab_size)), Variable(target_batch.view(21, mini_batch_size))
+    return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
 
 def evaluate():
     with open('vocab.pickle', 'rb') as handle:
@@ -63,10 +63,10 @@ def evaluate():
     vocab_size = len(vocab.keys())
     criterion = nn.CrossEntropyLoss()
     test_lines = readTestData(vocab)
+    num_tokens = len(test_lines[0].split())
     total_loss = 0 
-    number_of_batches = len(test_lines)/model.mini_batch_size
-    for j in range(number_of_batches):
-        input_batch, target_batch = get_batch(test_lines, j, model.mini_batch_size, vocab_size, vocab)
+    for j in range(len(test_lines)):
+        input_batch, target_batch = get_batch(test_lines, j, 1, num_tokens, vocab_size, vocab)
 
         hidden = model.initHidden()
 
@@ -74,7 +74,8 @@ def evaluate():
         loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1)).data[0]
         total_loss += loss
 
-    loss = total_loss/number_of_batches
+    loss = total_loss/len(test_lines)
+    print('Loss : %.1f' % loss)
     print('Perplexity : %.1f' % math.exp(loss))
 
 evaluate()

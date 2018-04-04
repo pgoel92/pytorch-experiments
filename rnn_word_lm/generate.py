@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-import model
+import inbuilt_rnn_model as model
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -41,6 +41,15 @@ def decode_word(output, inverted_vocab):
     word = inverted_vocab[topi]
     return word
 
+def input_tensor_from_list(ls, vocab, vocab_size):
+    nwords = len(ls)
+    input_tensor = torch.zeros(nwords, 1, vocab_size) 
+    for i in range(len(ls)):
+        inp = encode_word(ls[i], vocab)
+        input_tensor[i] = inp
+
+    return Variable(input_tensor)
+
 with open('model.pt', 'rb') as f:
     model = torch.load(f)
 
@@ -56,23 +65,17 @@ try:
     mini_batch_size = model.mini_batch_size
 except AttributeError:
     mini_batch_size = 1
-for word in words:
-    input_tensor = encode_word(word, vocab)
-    input_list = [input_tensor for i in range(mini_batch_size)]
-    input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
-    outputs, hidden = model(input_batch, hidden, input_batch.size()[0])
-    word = decode_word(outputs[0][0].view(1, outputs.size()[2]), inverted_vocab)
 
-decoded_sentence = sentence_beginning.split()
-max_len = 500
+max_len = 50
 i = 0
+word = '<start>'
 while word != '<end>' and i < max_len:
-    decoded_sentence.append(word)
-    input_tensor = encode_word(word, vocab)
-    input_list = [input_tensor for j in range(mini_batch_size)]
-    input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
-    outputs, hidden = model(input_batch, hidden, input_batch.size()[0])
-    word = decode_word(outputs[0][0].view(1, outputs.size()[2]), inverted_vocab)
+    input_tensor = input_tensor_from_list(words, vocab, vocab_size)
+    #input_list = [input_tensor for j in range(mini_batch_size)]
+    #input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
+    outputs, hidden = model(input_tensor, hidden, input_tensor.size()[0])
+    word = decode_word(outputs[-1][0].view(1, outputs.size()[2]), inverted_vocab)
+    words.append(word)
     i += 1
 
-print ' '.join(decoded_sentence)
+print ' '.join(words[1:-1])
