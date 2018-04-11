@@ -5,10 +5,11 @@ import torch
 import torch.nn as nn
 import random 
 import pickle
-import inbuilt_rnn_model as model
+import model
 import math
 import timeit
 import argparse
+from evaluate import evaluate
 
 MAX_VOCAB_SIZE = 20000
 mini_batch_size = 20
@@ -41,7 +42,6 @@ def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
     loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
     loss.backward()
 
-    torch.nn.utils.clip_grad_norm(rnn.parameters(), 0.25)
     for p in rnn.parameters():
         p.data.add_(-learning_rate, p.grad.data)
 
@@ -140,14 +140,14 @@ def main():
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = model.myRNN(vocab_size, 20, vocab_size, mini_batch_size)
+    rnn = model.myRNN(vocab_size, 200, vocab_size, mini_batch_size)
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.4
+    learning_rate = 0.01
 
     running_loss = 0
-    num_epochs = 2000
+    num_epochs = 20000
     num_iterations = len(lines) / mini_batch_size
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
@@ -165,11 +165,16 @@ def main():
             running_loss += loss
 
         elapsed = timeit.default_timer() - start_time
-        print('Epoch %d : %.4f' % (e, running_loss/num_iterations))
+        print('##################')
+        print('Epoch %d :' % e)
         #print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
         print('Time elapsed : %s' % (get_readable_time(int(elapsed))))
+        print('Training loss : %.4f' % (running_loss/num_iterations))
         running_loss = 0
 
+        loss, perp = evaluate('validation.txt', rnn, vocab)
+        print('Validation loss : %.1f' % loss)
+        print('Validation perplexity : %.1f' % perp)
         with open('model.pt', 'wb') as f:
             torch.save(rnn, f)
 

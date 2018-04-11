@@ -13,8 +13,8 @@ def replace_unknown(line, vocab):
     words = [is_unknown(word, vocab) for word in words]
     return ' '.join(words)
 
-def readTestData(vocab):
-    lines = open('test.txt', encoding='utf-8').readlines()
+def readTestData(filename, vocab):
+    lines = open(filename, encoding='utf-8').readlines()
     lines = [line.strip() for line in lines]
     lines = [line.lower() for line in lines]
     lines = [replace_unknown(line, vocab) for line in lines]
@@ -53,16 +53,18 @@ def get_batch(lines, batch_number, mini_batch_size, num_tokens, vocab_size, voca
 
     return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
 
-def evaluate():
-    with open('vocab.pickle', 'rb') as handle:
-        vocab = pickle.load(handle)
+def evaluate(filename, model, vocab=None):
+    if not vocab:
+        with open('vocab.pickle', 'rb') as handle:
+            vocab = pickle.load(handle)
 
-    with open('model.pt', 'rb') as f:
-        model = torch.load(f)
+    if not model:
+        with open('model.pt', 'rb') as f:
+            model = torch.load(f)
 
     vocab_size = len(vocab.keys())
     criterion = nn.CrossEntropyLoss()
-    test_lines = readTestData(vocab)
+    test_lines = readTestData(filename, vocab)
     num_tokens = len(test_lines[0].split())
     total_loss = 0 
     for j in range(len(test_lines)):
@@ -75,7 +77,10 @@ def evaluate():
         total_loss += loss
 
     loss = total_loss/len(test_lines)
-    print('Loss : %.1f' % loss)
-    print('Perplexity : %.1f' % math.exp(loss))
 
-evaluate()
+    return loss, math.exp(loss)
+
+if __name__ == "__main__":
+    loss, perp = evaluate('test.txt')
+    print('Loss : %.1f' % loss)
+    print('Perplexity : %.1f' % perp)

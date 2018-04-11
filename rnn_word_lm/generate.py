@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-import inbuilt_rnn_model as model
+import model
 import argparse
 
 parser = argparse.ArgumentParser()
