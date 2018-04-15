@@ -52,7 +52,7 @@ def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
     return outputs, loss.data[0], hidden
 
 def readData():
-    lines = open('input.txt', encoding='utf-8').readlines()
+    lines = open('train.txt', encoding='utf-8').readlines()
     lines = [line.strip() for line in lines]
     lines = [line.lower() for line in lines]
     words = ' '.join(lines).split()
