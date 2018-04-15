@@ -53,7 +53,7 @@ def get_batch(lines, batch_number, mini_batch_size, num_tokens, vocab_size, voca
 
     return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
 
-def evaluate(filename, model, vocab=None):
+def evaluate(filename, model=None, vocab=None):
     if not vocab:
         with open('vocab.pickle', 'rb') as handle:
             vocab = pickle.load(handle)

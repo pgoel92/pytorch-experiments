@@ -10,6 +10,8 @@ import math
 import timeit
 import argparse
 from evaluate import evaluate
+import matplotlib
+import matplotlib.pyplot as plt
 
 MAX_VOCAB_SIZE = 20000
 mini_batch_size = 20
@@ -35,15 +37,17 @@ def repackage_hidden(h):
     return Variable(h.data)
 
 def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
+    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)
     rnn.zero_grad()
 
     hidden = repackage_hidden(hidden)
     outputs, hidden = rnn.forward(input_batch, hidden, input_batch.size()[0])
     loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
     loss.backward()
+    optimizer.step()
 
-    for p in rnn.parameters():
-        p.data.add_(-learning_rate, p.grad.data)
+    #for p in rnn.parameters():
+    #    p.data.add_(-learning_rate, p.grad.data)
 
     return outputs, loss.data[0], hidden
 
@@ -134,6 +138,15 @@ def get_readable_time(secs):
 
     return readable_time.strip()
 
+def plotTrainingVsDevLoss(training_loss, dev_loss, filename):
+    """ Make a plot of regularization vs accuracy """
+    plt.plot(xrange(len(training_loss)), training_loss)
+    plt.plot(xrange(len(dev_loss)), dev_loss)
+    plt.xlabel("iterations")
+    plt.ylabel("loss")
+    plt.legend(['train', 'dev'], loc='upper left')
+    plt.savefig(filename)
+
 def main():
     lines, vocab_size = readData()
     print("Vocabulary size : " + str(vocab_size))
@@ -147,12 +160,16 @@ def main():
     learning_rate = 0.01
 
     running_loss = 0
-    num_epochs = 20000
+    num_epochs = 300
     num_iterations = len(lines) / mini_batch_size
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
     hidden = rnn.initHidden()
     num_tokens = len(lines[0].split())
+    training_loss = []
+    dev_loss = []
+    dev_perplexity = []
+    test_loss = []
     for e in range(num_epochs):
         for i in range(num_iterations):
             input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size)
@@ -170,13 +187,17 @@ def main():
         #print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
         print('Time elapsed : %s' % (get_readable_time(int(elapsed))))
         print('Training loss : %.4f' % (running_loss/num_iterations))
+        training_loss.append(running_loss/num_iterations)
         running_loss = 0
 
         loss, perp = evaluate('validation.txt', rnn, vocab)
+        dev_loss.append(loss)
+        dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
         print('Validation perplexity : %.1f' % perp)
         with open('model.pt', 'wb') as f:
             torch.save(rnn, f)
+    plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
 
 main()
