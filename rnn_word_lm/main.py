@@ -170,6 +170,7 @@ def main():
     dev_loss = []
     dev_perplexity = []
     test_loss = []
+    prev_dev_perplexity = 9999999999;
     for e in range(num_epochs):
         for i in range(num_iterations):
             input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size)
@@ -197,6 +198,9 @@ def main():
         print('Validation perplexity : %.1f' % perp)
         with open('model.pt', 'wb') as f:
             torch.save(rnn, f)
+        if perp > prev_dev_perplexity:
+            break
+        prev_dev_perplexity = perp
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
 
