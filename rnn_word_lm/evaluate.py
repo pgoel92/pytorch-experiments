@@ -53,7 +53,7 @@ def get_batch(lines, batch_number, mini_batch_size, num_tokens, vocab_size, voca
 
     return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
 
-def evaluate(filename, model=None, vocab=None):
+def evaluate(filename, model=None, vocab=None, cuda=False):
     if not vocab:
         with open('vocab.pickle', 'rb') as handle:
             vocab = pickle.load(handle)
@@ -69,6 +69,10 @@ def evaluate(filename, model=None, vocab=None):
     total_loss = 0 
     for j in range(len(test_lines)):
         input_batch, target_batch = get_batch(test_lines, j, 1, num_tokens, vocab_size, vocab)
+        if cuda:
+            input_batch = input_batch.cuda()
+            target_batch = target_batch.cuda()
+            model.cuda()
 
         hidden = model.initHidden()
 

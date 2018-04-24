@@ -191,7 +191,10 @@ def main():
         training_loss.append(running_loss/num_iterations)
         running_loss = 0
 
-        loss, perp = evaluate('validation.txt', rnn, vocab)
+        if args.cuda:
+            loss, perp = evaluate('validation.txt', rnn, vocab, cuda=True)
+        else:
+            loss, perp = evaluate('validation.txt', rnn, vocab)
         dev_loss.append(loss)
         dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
