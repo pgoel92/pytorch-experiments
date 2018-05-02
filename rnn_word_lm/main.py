@@ -10,6 +10,7 @@ import math
 import timeit
 import argparse
 from evaluate import evaluate
+from generate import generate
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -35,21 +36,6 @@ def encode_word(word):
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
     return Variable(h.data)
-
-def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
-    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)
-    rnn.zero_grad()
-
-    hidden = repackage_hidden(hidden)
-    outputs, hidden = rnn.forward(input_batch, hidden)
-    loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
-    loss.backward()
-    optimizer.step()
-
-    #for p in rnn.parameters():
-    #    p.data.add_(-learning_rate, p.grad.data)
-
-    return outputs, loss.data[0], hidden
 
 def readData():
     lines = open('train.txt', encoding='utf-8').readlines()
@@ -147,6 +133,21 @@ def plotTrainingVsDevLoss(training_loss, dev_loss, filename):
     plt.legend(['train', 'dev'], loc='upper left')
     plt.savefig(filename)
 
+def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
+    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)
+    rnn.zero_grad()
+
+    hidden = repackage_hidden(hidden)
+    outputs, hidden = rnn.forward(input_batch, hidden)
+    loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
+    loss.backward()
+    optimizer.step()
+
+    #for p in rnn.parameters():
+    #    p.data.add_(-learning_rate, p.grad.data)
+
+    return outputs, loss.data[0], hidden
+
 def main():
     lines, vocab_size = readData()
     print("Vocabulary size : " + str(vocab_size))
@@ -157,7 +158,7 @@ def main():
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.001
+    learning_rate = 0.01
 
     running_loss = 0
     num_epochs = 300
@@ -199,12 +200,16 @@ def main():
         dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
         print('Validation perplexity : %.1f' % perp)
+        samples = generate(rnn, vocab)
+        print('Samples : ')
+        for sample in samples:
+            print(sample)
         with open('model.pt', 'wb') as f:
             torch.save(rnn, f)
         if perp > prev_dev_perplexity:
-            break
+            learning_rate /= 4
         prev_dev_perplexity = perp
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
-print "V2.1"
+print "V2.3"
 main()

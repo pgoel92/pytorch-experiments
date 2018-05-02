@@ -58,34 +58,41 @@ def input_tensor_from_list(ls, vocab, vocab_size):
 
 def random_word(vocab):
     words = vocab.keys()
-    word = words[random.randint(0, len(words))]
+    word = words[random.randint(0, len(words) - 1)]
     return word, encode_word(word, vocab)
 
-with open('model.pt', 'rb') as f:
-    model = torch.load(f)
+def generate(model, vocab):
+    samples = []
+    max_len = 50
+    inverted_vocab = invert_vocab(vocab)
+    hidden = model.initHidden()
+    for s in range(5):
+        sample = []
+        i = 0
+        word, input_tensor = random_word(vocab)
+        sample.append(word)
+        while word != '<end>' and i < max_len:
+            if args.cuda:
+                input_tensor = input_tensor.cuda()
+            outputs, hidden = model(input_tensor, hidden)
+            word = decode_word(outputs[0], inverted_vocab)
+            sample.append(word)
+            input_tensor = encode_word(word, vocab)
+            i += 1
+        samples.append(sample)
+    
+    return [' '.join(sample) for sample in samples]
 
-with open('vocab.pickle', 'rb') as handle:
-    vocab = pickle.load(handle)
-
-inverted_vocab = invert_vocab(vocab)
-vocab_size = len(vocab.keys())
-hidden = model.initHidden()
-sentence_beginning = args.prefix
-#words = ('<start> ' + sentence_beginning).split()
-words = []
-
-max_len = 50
-
-for s in range(20):
-    i = 0
-    word, input_tensor = random_word(vocab)
-    print word,
-    while word != '<end>' and i < max_len:
-        if args.cuda:
-            input_tensor = input_tensor.cuda()
-        outputs, hidden = model(input_tensor, hidden)
-        word = decode_word(outputs[0], inverted_vocab)
-        print word,
-        input_tensor = encode_word(word, vocab)
-        i += 1
-    print
+def main():
+    with open('model.pt', 'rb') as f:
+        model = torch.load(f)
+    
+    with open('vocab.pickle', 'rb') as handle:
+        vocab = pickle.load(handle)
+    
+    #sentence_beginning = args.prefix
+    #words = ('<start> ' + sentence_beginning).split()
+    generate(model, vocab)
+    
+if __name__ == "__main__":
+    main()
