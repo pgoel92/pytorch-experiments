@@ -13,7 +13,7 @@ from evaluate import evaluate
 import matplotlib
 import matplotlib.pyplot as plt
 
-MAX_VOCAB_SIZE = 20000
+MAX_VOCAB_SIZE = 2446
 mini_batch_size = 20
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
@@ -41,7 +41,7 @@ def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
     rnn.zero_grad()
 
     hidden = repackage_hidden(hidden)
-    outputs, hidden = rnn.forward(input_batch, hidden, input_batch.size()[0])
+    outputs, hidden = rnn.forward(input_batch, hidden)
     loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
     loss.backward()
     optimizer.step()
@@ -157,7 +157,7 @@ def main():
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.01
+    learning_rate = 0.001
 
     running_loss = 0
     num_epochs = 300
@@ -206,5 +206,5 @@ def main():
         prev_dev_perplexity = perp
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
-
+print "V2.1"
 main()

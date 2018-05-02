@@ -25,7 +25,7 @@ def get_examples_with_token_count(filename, nr_tokens):
         return token_lines
 
 nr_tokens = 5
-nr_training = 10000
+nr_training = 50000
 nr_dev = 100
 nr_test = 500
 

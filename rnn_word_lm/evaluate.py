@@ -4,6 +4,12 @@ import torch.nn as nn
 import pickle
 import math
 from torch.autograd import Variable
+import argparse
+
+parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
+parser.add_argument('--cuda', action='store_true',
+                    help='use CUDA')
+args = parser.parse_args()
 
 def is_unknown(word, vocab):
     return word if word in vocab else '<unk>'
@@ -76,8 +82,8 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
 
         hidden = model.initHidden()
 
-        outputs, hidden = model(input_batch, hidden, input_batch.size()[0])
-        loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1)).data[0]
+        outputs, hidden = model(input_batch, hidden)
+        loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1)).item()
         total_loss += loss
 
     loss = total_loss/len(test_lines)
@@ -85,6 +91,9 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
     return loss, math.exp(loss)
 
 if __name__ == "__main__":
-    loss, perp = evaluate('test.txt')
+    if args.cuda:
+        loss, perp = evaluate('test.txt', cuda=True)
+    else:
+        loss, perp = evaluate('test.txt')
     print('Loss : %.1f' % loss)
     print('Perplexity : %.1f' % perp)

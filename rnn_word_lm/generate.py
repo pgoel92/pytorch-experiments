@@ -13,9 +13,11 @@ from torch.autograd import Variable
 
 import model
 import argparse
+import random
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--prefix')
+parser.add_argument('--cuda', action='store_true')
 args = parser.parse_args()
 
 def invert_vocab(vocab):
@@ -27,18 +29,22 @@ def invert_vocab(vocab):
 
 def encode_word(word, vocab):
     vocab_size = len(vocab.keys())
-    word_tensor = torch.zeros(1, vocab_size)
+    word_tensor = torch.zeros(1, 1, vocab_size)
     if word not in vocab:
-        word_tensor[0][vocab_size - 1] = 1
+        word_tensor[0][0][vocab_size - 1] = 1
     else:
-        word_tensor[0][vocab[word]] = 1
+        word_tensor[0][0][vocab[word]] = 1
 
     return word_tensor
 
 def decode_word(output, inverted_vocab):
-    topv, topi = output.data.topk(1)
-    topi = topi[0][0]
-    word = inverted_vocab[topi]
+    word_idx = torch.multinomial(output.exp(), 1)[0][0].item()
+    return inverted_vocab[word_idx]
+    #print output.exp()[0].topk(5)
+    #topv, topi = output.data.topk(1)
+    #topi = topi[0][0]
+    #print topi.item()
+    #word = inverted_vocab[topi.item()]
     return word
 
 def input_tensor_from_list(ls, vocab, vocab_size):
@@ -50,6 +56,11 @@ def input_tensor_from_list(ls, vocab, vocab_size):
 
     return Variable(input_tensor)
 
+def random_word(vocab):
+    words = vocab.keys()
+    word = words[random.randint(0, len(words))]
+    return word, encode_word(word, vocab)
+
 with open('model.pt', 'rb') as f:
     model = torch.load(f)
 
@@ -60,22 +71,21 @@ inverted_vocab = invert_vocab(vocab)
 vocab_size = len(vocab.keys())
 hidden = model.initHidden()
 sentence_beginning = args.prefix
-words = ('<start> ' + sentence_beginning).split()
-try:
-    mini_batch_size = model.mini_batch_size
-except AttributeError:
-    mini_batch_size = 1
+#words = ('<start> ' + sentence_beginning).split()
+words = []
 
 max_len = 50
-i = 0
-word = '<start>'
-while word != '<end>' and i < max_len:
-    input_tensor = input_tensor_from_list(words, vocab, vocab_size)
-    #input_list = [input_tensor for j in range(mini_batch_size)]
-    #input_batch = Variable(torch.cat(input_list).view(1, mini_batch_size, vocab_size))
-    outputs, hidden = model(input_tensor, hidden, input_tensor.size()[0])
-    word = decode_word(outputs[-1][0].view(1, outputs.size()[2]), inverted_vocab)
-    words.append(word)
-    i += 1
 
-print ' '.join(words[1:-1])
+for s in range(20):
+    i = 0
+    word, input_tensor = random_word(vocab)
+    print word,
+    while word != '<end>' and i < max_len:
+        if args.cuda:
+            input_tensor = input_tensor.cuda()
+        outputs, hidden = model(input_tensor, hidden)
+        word = decode_word(outputs[0], inverted_vocab)
+        print word,
+        input_tensor = encode_word(word, vocab)
+        i += 1
+    print
