@@ -6,11 +6,6 @@ import math
 from torch.autograd import Variable
 import argparse
 
-parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--cuda', action='store_true',
-                    help='use CUDA')
-args = parser.parse_args()
-
 def is_unknown(word, vocab):
     return word if word in vocab else '<unk>'
 
@@ -80,7 +75,7 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
             target_batch = target_batch.cuda()
             model.cuda()
 
-        hidden = model.initHidden()
+        hidden = model.initHidden(1)
 
         outputs, hidden = model(input_batch, hidden)
         loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1)).item()
@@ -91,6 +86,11 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
     return loss, math.exp(loss)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
+    parser.add_argument('--cuda', action='store_true',
+                        help='use CUDA')
+    args = parser.parse_args()
+
     if args.cuda:
         loss, perp = evaluate('test.txt', cuda=True)
     else:

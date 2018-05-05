@@ -11,13 +11,21 @@ class myRNN(nn.Module):
 
         self.hidden_size = hidden_size
 
+        #self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform(-initrange, initrange)
+
     # inputs : sentence_len x mini_batch_size x input_size
     # hidden : 1 x hidden_size
     def forward(self, inputs, hidden):
-        interms = self.encoder(inputs)
+        interms = self.encoder(inputs, hidden)
         outputs = self.decoder(interms[0])
    
-        return outputs, Variable(torch.zeros(1, self.hidden_size))
+        return outputs, hidden
 
-    def initHidden(self):
-        return Variable(torch.zeros(1, self.hidden_size))
+    def initHidden(self, bsz):
+        return (Variable(torch.zeros(1, bsz, self.hidden_size)),
+                Variable(torch.zeros(1, bsz, self.hidden_size)))

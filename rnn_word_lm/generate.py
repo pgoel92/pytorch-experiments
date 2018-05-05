@@ -15,11 +15,6 @@ import model
 import argparse
 import random
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--prefix')
-parser.add_argument('--cuda', action='store_true')
-args = parser.parse_args()
-
 def invert_vocab(vocab):
     inverted_vocab = {}
     for key, value in vocab.iteritems():
@@ -61,18 +56,20 @@ def random_word(vocab):
     word = words[random.randint(0, len(words) - 1)]
     return word, encode_word(word, vocab)
 
-def generate(model, vocab):
+def generate(model, vocab, cuda):
     samples = []
     max_len = 50
     inverted_vocab = invert_vocab(vocab)
-    hidden = model.initHidden()
     for s in range(5):
         sample = []
         i = 0
+        hidden = model.initHidden(1)
+        input_tensor = encode_word('<start>', vocab)
+        outputs, hidden = model(input_tensor, hidden)
         word, input_tensor = random_word(vocab)
         sample.append(word)
         while word != '<end>' and i < max_len:
-            if args.cuda:
+            if cuda:
                 input_tensor = input_tensor.cuda()
             outputs, hidden = model(input_tensor, hidden)
             word = decode_word(outputs[0], inverted_vocab)
@@ -83,7 +80,7 @@ def generate(model, vocab):
     
     return [' '.join(sample) for sample in samples]
 
-def main():
+def main(args):
     with open('model.pt', 'rb') as f:
         model = torch.load(f)
     
@@ -92,7 +89,12 @@ def main():
     
     #sentence_beginning = args.prefix
     #words = ('<start> ' + sentence_beginning).split()
-    generate(model, vocab)
+    generate(model, vocab, args.cuda)
     
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--prefix')
+    parser.add_argument('--cuda', action='store_true')
+    args = parser.parse_args()
+
+    main(args)

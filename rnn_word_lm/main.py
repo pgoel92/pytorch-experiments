@@ -14,14 +14,6 @@ from generate import generate
 import matplotlib
 import matplotlib.pyplot as plt
 
-MAX_VOCAB_SIZE = 2446
-mini_batch_size = 20
-
-parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM Language Model')
-parser.add_argument('--cuda', action='store_true',
-                    help='use CUDA')
-args = parser.parse_args()
-
 vocab = {}
 def encode_word(word):
     vocab_size = len(vocab.keys())
@@ -35,10 +27,13 @@ def encode_word(word):
 
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
-    return Variable(h.data)
+    if isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return tuple(repackage_hidden(v) for v in h)
 
-def readData():
-    lines = open('train.txt', encoding='utf-8').readlines()
+def readData(filename, max_vocab_size):
+    lines = open(filename, encoding='utf-8').readlines()
     lines = [line.strip() for line in lines]
     lines = [line.lower() for line in lines]
     words = ' '.join(lines).split()
@@ -53,7 +48,7 @@ def readData():
     words_sorted_by_count = sorted(word_dict.iteritems(), key = lambda x: x[1], reverse=True)
 
     i = 0
-    for word, frequency in words_sorted_by_count[:min(MAX_VOCAB_SIZE, len(words_sorted_by_count))]:
+    for word, frequency in words_sorted_by_count[:min(max_vocab_size, len(words_sorted_by_count))]:
         vocab[word] = i
         i += 1
 
@@ -84,17 +79,17 @@ def lineToTensor(line):
 
     return input_tensor, target_tensor
 
-def get_batch(lines, batch_number, num_tokens, vocab_size):
-    batch_lines = lines[batch_number * mini_batch_size:(batch_number + 1) * mini_batch_size]
+def get_batch(lines, batch_number, num_tokens, vocab_size, batch_size):
+    batch_lines = lines[batch_number * batch_size:(batch_number + 1) * batch_size]
     # The number of steps is num_tokens + 1 because of <start> and <end> being appended to each input and target sequence respectively
-    input_batch = torch.zeros(mini_batch_size, num_tokens + 1, vocab_size)
-    target_batch = torch.zeros(mini_batch_size, num_tokens + 1).type(torch.LongTensor)
-    for i in range(mini_batch_size):
+    input_batch = torch.zeros(batch_size, num_tokens + 1, vocab_size)
+    target_batch = torch.zeros(batch_size, num_tokens + 1).type(torch.LongTensor)
+    for i in range(batch_size):
         input, target = lineToTensor(batch_lines[i])
         input_batch[i] = input.squeeze()
         target_batch[i] = target
 
-    return Variable(input_batch.view(num_tokens + 1, mini_batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, mini_batch_size))
+    return Variable(input_batch.view(num_tokens + 1, batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, batch_size))
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -146,26 +141,26 @@ def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
     #for p in rnn.parameters():
     #    p.data.add_(-learning_rate, p.grad.data)
 
-    return outputs, loss.data[0], hidden
+    return outputs, loss.item(), hidden
 
-def main():
-    lines, vocab_size = readData()
+def main(args):
+    lines, vocab_size = readData(args.data + '/train.txt', args.vsize)
     print("Vocabulary size : " + str(vocab_size))
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = model.myRNN(vocab_size, 200, vocab_size, mini_batch_size)
+    rnn = model.myRNN(vocab_size, args.nhid, vocab_size, args.bsz)
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
-    learning_rate = 0.01
+    learning_rate = args.lr
 
     running_loss = 0
     num_epochs = 300
-    num_iterations = len(lines) / mini_batch_size
+    num_iterations = len(lines) / args.bsz
     print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
-    hidden = rnn.initHidden()
+    #hidden = rnn.initHidden(args.bsz)
     num_tokens = len(lines[0].split())
     training_loss = []
     dev_loss = []
@@ -174,7 +169,8 @@ def main():
     prev_dev_perplexity = 9999999999;
     for e in range(num_epochs):
         for i in range(num_iterations):
-            input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size)
+            hidden = rnn.initHidden(args.bsz)
+            input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size, args.bsz)
             if args.cuda:
                 input_batch = input_batch.cuda()
                 target_batch = target_batch.cuda()
@@ -193,14 +189,14 @@ def main():
         running_loss = 0
 
         if args.cuda:
-            loss, perp = evaluate('validation.txt', rnn, vocab, cuda=True)
+            loss, perp = evaluate(args.data + '/validation.txt', rnn, vocab, cuda=True)
         else:
-            loss, perp = evaluate('validation.txt', rnn, vocab)
+            loss, perp = evaluate(args.data + '/validation.txt', rnn, vocab)
         dev_loss.append(loss)
         dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
         print('Validation perplexity : %.1f' % perp)
-        samples = generate(rnn, vocab)
+        samples = generate(rnn, vocab, args.cuda)
         print('Samples : ')
         for sample in samples:
             print(sample)
@@ -211,5 +207,14 @@ def main():
         prev_dev_perplexity = perp
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
-print "V2.3"
-main()
+if __name__ == "__main__":
+    print "V2.9"
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--bsz', type=int, default=20, help='batch size')
+    parser.add_argument('--nhid', type=int, default=200, help='number of hidden units')
+    parser.add_argument('--vsize', type=int, default=2997, help='max vocab size')
+    parser.add_argument('--cuda', action='store_true', help='use CUDA')
+    parser.add_argument('--data', type=str, default='./data/fiftyk', help='location of data corpus')
+    args = parser.parse_args()
+    main(args)
