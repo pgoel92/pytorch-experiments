@@ -52,7 +52,9 @@ def input_tensor_from_list(ls, vocab, vocab_size):
     return Variable(input_tensor)
 
 def random_word(vocab):
+    helper_words = ['<start>', '<end>', '<unk>']
     words = vocab.keys()
+    words = [word for word in words if word not in helper_words]
     word = words[random.randint(0, len(words) - 1)]
     return word, encode_word(word, vocab)
 
@@ -60,17 +62,21 @@ def generate(model, vocab, cuda):
     samples = []
     max_len = 50
     inverted_vocab = invert_vocab(vocab)
-    for s in range(5):
+    for s in range(1):
         sample = []
         i = 0
         hidden = model.initHidden(1)
         input_tensor = encode_word('<start>', vocab)
+        if cuda:
+            input_tensor = input_tensor.cuda()
+            hidden = (hidden[0].cuda(), hidden[1].cuda())
         outputs, hidden = model(input_tensor, hidden)
         word, input_tensor = random_word(vocab)
         sample.append(word)
-        while word != '<end>' and i < max_len:
+        while i < max_len:
             if cuda:
                 input_tensor = input_tensor.cuda()
+                hidden = (hidden[0].cuda(), hidden[1].cuda())
             outputs, hidden = model(input_tensor, hidden)
             word = decode_word(outputs[0], inverted_vocab)
             sample.append(word)

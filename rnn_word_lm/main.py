@@ -74,8 +74,16 @@ def listToTensor(ls):
 def lineToTensor(line):
     words = line.split()
     word_tensors = map(encode_word, words)
-    input_tensor = listToTensor([encode_word('<start>')] + word_tensors[:len(word_tensors)])
+    input_tensor = listToTensor([encode_word('<start>')] + word_tensors)
     target_tensor = torch.LongTensor([vocab[word] for word in words] + [vocab['<end>']])
+
+    return input_tensor, target_tensor
+
+def lineToTensor_continuous(line):
+    words = line.split()
+    word_tensors = map(encode_word, words)
+    input_tensor = listToTensor(word_tensors[:len(word_tensors) - 1])
+    target_tensor = torch.LongTensor([vocab[word] for word in words[1:]])
 
     return input_tensor, target_tensor
 
@@ -90,6 +98,23 @@ def get_batch(lines, batch_number, num_tokens, vocab_size, batch_size):
         target_batch[i] = target
 
     return Variable(input_batch.view(num_tokens + 1, batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, batch_size))
+
+BPTT = 35
+def get_batch_continuous(lines, batch_number, num_tokens, vocab_size, batch_size):
+    lines = ['<start> ' + line + ' <end>' for line in lines]
+    text = ' '.join(lines)
+    nwords = len(text.split())
+    # batch_lines = lines[batch_number * batch_size:(batch_number + 1) * batch_size]
+    # The number of steps is num_tokens + 1 because of <start> and <end> being appended to each input and target sequence respectively
+    input_batch = torch.zeros(batch_size, BPTT - 1, vocab_size)
+    target_batch = torch.zeros(batch_size, BPTT - 1).type(torch.LongTensor)
+    for i in range(batch_size):
+        line = ' '.join(text.split()[i*BPTT:min(i*BPTT + BPTT, nwords)])
+        input, target = lineToTensor_continuous(line)
+        input_batch[i] = input.squeeze()
+        target_batch[i] = target
+
+    return Variable(input_batch.view(BPTT - 1, batch_size, vocab_size)), Variable(target_batch.view(BPTT - 1, batch_size))
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -129,6 +154,7 @@ def plotTrainingVsDevLoss(training_loss, dev_loss, filename):
     plt.savefig(filename)
 
 def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
+    rnn.train()
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)
     rnn.zero_grad()
 
@@ -150,6 +176,7 @@ def main(args):
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     rnn = model.myRNN(vocab_size, args.nhid, vocab_size, args.bsz)
+    #rnn = model.RNNModel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2)
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -170,10 +197,11 @@ def main(args):
     for e in range(num_epochs):
         for i in range(num_iterations):
             hidden = rnn.initHidden(args.bsz)
-            input_batch, target_batch = get_batch(lines, i, num_tokens, vocab_size, args.bsz)
+            input_batch, target_batch = get_batch_continuous(lines, i, num_tokens, vocab_size, args.bsz)
             if args.cuda:
                 input_batch = input_batch.cuda()
                 target_batch = target_batch.cuda()
+                hidden = (hidden[0].cuda(), hidden[1].cuda())
             outputs, loss, hidden = train(rnn, hidden, criterion, learning_rate, input_batch, target_batch)
 
             # print(str(loss) + " # " + lines[i%len(lines)])
@@ -196,6 +224,7 @@ def main(args):
         dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
         print('Validation perplexity : %.1f' % perp)
+        rnn.eval()
         samples = generate(rnn, vocab, args.cuda)
         print('Samples : ')
         for sample in samples:
@@ -208,7 +237,7 @@ def main(args):
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
 if __name__ == "__main__":
-    print "V2.9"
+    print "V3.1"
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--bsz', type=int, default=20, help='batch size')

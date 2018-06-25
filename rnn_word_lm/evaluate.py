@@ -70,12 +70,12 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
     total_loss = 0 
     for j in range(len(test_lines)):
         input_batch, target_batch = get_batch(test_lines, j, 1, num_tokens, vocab_size, vocab)
+        hidden = model.initHidden(1)
         if cuda:
             input_batch = input_batch.cuda()
             target_batch = target_batch.cuda()
+            hidden = (hidden[0].cuda(), hidden[1].cuda())
             model.cuda()
-
-        hidden = model.initHidden(1)
 
         outputs, hidden = model(input_batch, hidden)
         loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1)).item()
