@@ -63,6 +63,7 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
         with open('model.pt', 'rb') as f:
             model = torch.load(f)
 
+    device = torch.device("cuda" if cuda else "cpu")
     vocab_size = len(vocab.keys())
     criterion = nn.CrossEntropyLoss()
     test_lines = readTestData(filename, vocab)
@@ -70,7 +71,7 @@ def evaluate(filename, model=None, vocab=None, cuda=False):
     total_loss = 0 
     for j in range(len(test_lines)):
         input_batch, target_batch = get_batch(test_lines, j, 1, num_tokens, vocab_size, vocab)
-        hidden = model.initHidden(1)
+        hidden = model.initHidden(1, device)
         if cuda:
             input_batch = input_batch.cuda()
             target_batch = target_batch.cuda()

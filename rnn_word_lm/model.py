@@ -38,8 +38,11 @@ class RNNModel(nn.Module):
     # inputs : sentence_len x mini_batch_size x input_size
     # hidden : 1 x hidden_size
     def forward(self, input, hidden=None):
-        input_tensors = self.tokensToTensors(input)
-        output, hidden = self.encoder(input_tensors, hidden)
+        if len(input.size()) == 2:
+            input_tensors = self.tokensToTensors(input)
+            output, hidden = self.encoder(input_tensors, hidden)
+        else:
+            output, hidden = self.encoder(input, hidden)
         output = self.drop(output)
         outputs = self.decoder(output)
    

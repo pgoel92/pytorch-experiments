@@ -36,16 +36,6 @@ def invert_vocab(vocab):
 
     return inverted_vocab
 
-def encode_word(word):
-    vocab_size = len(vocab.keys())
-    word_tensor = torch.zeros(1, vocab_size)
-    if word not in vocab:
-        word_tensor[0][vocab_size - 1] = 1
-    else:
-        word_tensor[0][vocab[word]] = 1
-
-    return word_tensor
-
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
     if isinstance(h, torch.Tensor):
@@ -97,37 +87,6 @@ def add_start_end(line):
 def replace_unknown(words):
     return [is_unknown(word) for word in words]
 
-def listToTensor(ls):
-    return torch.stack(ls)
-
-def lineToTensor(line):
-    words = line.split()
-    word_tensors = map(encode_word, words)
-    input_tensor = listToTensor([encode_word('<start>')] + word_tensors)
-    target_tensor = torch.LongTensor([vocab[word] for word in words] + [vocab['<end>']])
-
-    return input_tensor, target_tensor
-
-def lineToTensor_continuous(line):
-    words = line.split()
-    word_tensors = map(encode_word, words)
-    input_tensor = listToTensor(word_tensors[:len(word_tensors) - 1])
-    target_tensor = torch.LongTensor([vocab[word] for word in words[1:]])
-
-    return input_tensor, target_tensor
-
-def get_batch(lines, batch_number, num_tokens, vocab_size, batch_size):
-    batch_lines = lines[batch_number * batch_size:(batch_number + 1) * batch_size]
-    # The number of steps is num_tokens + 1 because of <start> and <end> being appended to each input and target sequence respectively
-    input_batch = torch.zeros(batch_size, num_tokens + 1, vocab_size)
-    target_batch = torch.zeros(batch_size, num_tokens + 1).type(torch.LongTensor)
-    for i in range(batch_size):
-        input, target = lineToTensor(batch_lines[i])
-        input_batch[i] = input.squeeze()
-        target_batch[i] = target
-
-    return Variable(input_batch.view(num_tokens + 1, batch_size, vocab_size)), Variable(target_batch.view(num_tokens + 1, batch_size))
-
 def get_batch_pytorch(source, i):
     seq_len = min(bptt, len(source) - 1 - i)
     data = source[i:i+seq_len]
@@ -142,31 +101,6 @@ def batchify(data, bsz):
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
     return data.to(device)
-
-BPTT = 35
-def get_batch_continuous(lines, batch_number, num_tokens, vocab_size, batch_size):
-    text = ' '.join(lines)
-    nwords = len(text.split())
-    # batch_lines = lines[batch_number * batch_size:(batch_number + 1) * batch_size]
-    # The number of steps is num_tokens + 1 because of <start> and <end> being appended to each input and target sequence respectively
-    input_batch = torch.zeros(batch_size, BPTT - 1, vocab_size)
-    target_batch = torch.zeros(batch_size, BPTT - 1).type(torch.LongTensor)
-    for i in range(batch_size):
-        line = ' '.join(text.split()[i*BPTT:min(i*BPTT + BPTT, nwords)])
-        input, target = lineToTensor_continuous(line)
-        input_batch[i] = input.squeeze()
-        target_batch[i] = target
-
-    return Variable(input_batch.view(BPTT - 1, batch_size, vocab_size)), Variable(target_batch.view(BPTT - 1, batch_size))
-
-def randomChoice(l):
-    return l[random.randint(0, len(l) - 1)]
-
-def randomTrainingExample(lines):
-    line = randomChoice(lines)
-    input_line_tensor, target_line_tensor = lineToTensor(line)
-
-    return input_line_tensor, target_line_tensor
 
 def get_readable_time(secs):
     readable_time = ""
@@ -203,13 +137,10 @@ def train(rnn, hidden, data, targets):
 
     hidden = repackage_hidden(hidden)
     output, hidden = rnn.forward(data, hidden)
-    #loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
     loss = criterion(output.view(-1, output.size()[2]), targets)
     loss.backward()
     optimizer.step()
 
-    #for p in rnn.parameters():
-    #    p.data.add_(-learning_rate, p.grad.data)
     return
 
 def evaluate(rnn, vocab):
@@ -221,11 +152,6 @@ def evaluate(rnn, vocab):
     for batch, i in enumerate(range(0, test_data.size(0) - 1, bptt)):
         data, targets = get_batch_pytorch(test_data, i)
         hidden = rnn.initHidden(args.bsz, device)
-        #if cuda:
-        #    input_batch = input_batch.cuda()
-        #    target_batch = target_batch.cuda()
-        #    hidden = (hidden[0].cuda(), hidden[1].cuda())
-        #    model.cuda()
 
         output, hidden = rnn.forward(data, hidden)
         loss = criterion(output.view(-1, output.size()[2]), targets).item()
@@ -263,22 +189,15 @@ def main():
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    #rnn = model.myRNN(vocab_size, args.nhid, vocab_size, args.bsz)
     if args.model == 'mymodel':
         rnn = mymodel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2).to(device)
     else:
         rnn = pymodel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2).to(device)
-#    if args.cuda:
-#        rnn.cuda()
     learning_rate = args.lr
 
     running_loss = 0
     num_epochs = 40
-    num_iterations = len(words) / args.bsz
-    print_every = num_iterations/10 - 1
     start_time = timeit.default_timer()
-    #hidden = rnn.initHidden(args.bsz)
-    #num_tokens = len(words[0].split())
     training_loss = []
     dev_loss = []
     dev_perplexity = []
@@ -289,36 +208,20 @@ def main():
     for e in range(num_epochs):
         for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
             data, targets = get_batch_pytorch(train_data, i)
-        #    for i in range(num_iterations):
             hidden = rnn.initHidden(args.bsz, device)
-            #input_batch, target_batch = get_batch_continuous(words, i, num_tokens, vocab_size, args.bsz)
-            #if args.cuda:
-            #    input_batch = input_batch.cuda()
-            #    target_batch = target_batch.cuda()
-            #    hidden = (hidden[0].cuda(), hidden[1].cuda())
             train(rnn, hidden, data, targets)
-            # print(str(loss) + " # " + lines[i%len(lines)])
             k += 1
         elapsed = timeit.default_timer() - start_time
         print('##################')
         print('Epoch %d :' % e)
-        #print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
         print('Time elapsed : %s' % (get_readable_time(int(elapsed))))
         loss, perp = evaluate(rnn, vocab)
 
-        #if args.cuda:
-        #    loss, perp = evaluate(args.data + '/validation.txt', rnn, vocab, cuda=True)
-        #else:
-        #    loss, perp = evaluate(args.data + '/validation.txt', rnn, vocab)
         #dev_loss.append(loss)
         #dev_perplexity.append(perp)
         print('Validation loss : %.1f' % loss)
         print('Validation perplexity : %.1f' % perp)
-        #rnn.eval()
         generate(rnn, vocab_size, inverted_vocab)
-        #print('Samples : ')
-        #for sample in samples:
-        #    print(sample)
         with open('model.pt', 'wb') as f:
             torch.save(rnn, f)
         #if perp > prev_dev_perplexity:

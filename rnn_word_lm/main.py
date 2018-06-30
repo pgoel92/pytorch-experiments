@@ -14,6 +14,15 @@ from generate import generate
 import matplotlib
 import matplotlib.pyplot as plt
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+parser.add_argument('--bsz', type=int, default=20, help='batch size')
+parser.add_argument('--nhid', type=int, default=200, help='number of hidden units')
+parser.add_argument('--vsize', type=int, default=2997, help='max vocab size')
+parser.add_argument('--cuda', action='store_true', help='use CUDA')
+parser.add_argument('--data', type=str, default='./data/fiftyk', help='location of data corpus')
+args = parser.parse_args()
+
 vocab = {}
 def encode_word(word):
     vocab_size = len(vocab.keys())
@@ -169,14 +178,13 @@ def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
 
     return outputs, loss.item(), hidden
 
-def main(args):
+def main(device):
     lines, vocab_size = readData(args.data + '/train.txt', args.vsize)
     print("Vocabulary size : " + str(vocab_size))
     with open('vocab.pickle', 'wb') as handle:
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    rnn = model.myRNN(vocab_size, args.nhid, vocab_size, args.bsz)
-    #rnn = model.RNNModel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2)
+    rnn = model.RNNModel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2)
     if args.cuda:
         rnn.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -196,7 +204,7 @@ def main(args):
     prev_dev_perplexity = 9999999999;
     for e in range(num_epochs):
         for i in range(num_iterations):
-            hidden = rnn.initHidden(args.bsz)
+            hidden = rnn.initHidden(args.bsz, device)
             input_batch, target_batch = get_batch_continuous(lines, i, num_tokens, vocab_size, args.bsz)
             if args.cuda:
                 input_batch = input_batch.cuda()
@@ -238,12 +246,5 @@ def main(args):
 
 if __name__ == "__main__":
     print "V3.1"
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
-    parser.add_argument('--bsz', type=int, default=20, help='batch size')
-    parser.add_argument('--nhid', type=int, default=200, help='number of hidden units')
-    parser.add_argument('--vsize', type=int, default=2997, help='max vocab size')
-    parser.add_argument('--cuda', action='store_true', help='use CUDA')
-    parser.add_argument('--data', type=str, default='./data/fiftyk', help='location of data corpus')
-    args = parser.parse_args()
-    main(args)
+    device = torch.device("cuda" if args.cuda else "cpu")
+    main(device)
