@@ -62,10 +62,11 @@ def generate(model, vocab, cuda):
     samples = []
     max_len = 50
     inverted_vocab = invert_vocab(vocab)
+    device = torch.device("cuda" if cuda else "cpu")
     for s in range(1):
         sample = []
         i = 0
-        hidden = model.initHidden(1)
+        hidden = model.initHidden(1, device)
         input_tensor = encode_word('<start>', vocab)
         if cuda:
             input_tensor = input_tensor.cuda()

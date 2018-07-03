@@ -162,14 +162,14 @@ def plotTrainingVsDevLoss(training_loss, dev_loss, filename):
     plt.legend(['train', 'dev'], loc='upper left')
     plt.savefig(filename)
 
-def train(rnn, hidden, criterion, learning_rate, input_batch, target_batch):
+def train(rnn, hidden, criterion, learning_rate, input_batch, targets):
     rnn.train()
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)
     rnn.zero_grad()
 
     hidden = repackage_hidden(hidden)
     outputs, hidden = rnn.forward(input_batch, hidden)
-    loss = criterion(outputs.view(-1, outputs.size()[2]), target_batch.view(-1))
+    loss = criterion(outputs.view(-1, outputs.size()[2]), targets)
     loss.backward()
     optimizer.step()
 
@@ -213,16 +213,16 @@ def main(device):
             outputs, loss, hidden = train(rnn, hidden, criterion, learning_rate, input_batch, target_batch)
 
             # print(str(loss) + " # " + lines[i%len(lines)])
-            running_loss += loss
+            # running_loss += loss
 
         elapsed = timeit.default_timer() - start_time
         print('##################')
         print('Epoch %d :' % e)
         #print('Time elapsed : %s, Projected epoch training time : %s' % (get_readable_time(int(elapsed)), get_readable_time(int((elapsed/(i + e*num_iterations))*num_iterations))))
         print('Time elapsed : %s' % (get_readable_time(int(elapsed))))
-        print('Training loss : %.4f' % (running_loss/num_iterations))
-        training_loss.append(running_loss/num_iterations)
-        running_loss = 0
+        #print('Training loss : %.4f' % (running_loss/num_iterations))
+        #training_loss.append(running_loss/num_iterations)
+        #running_loss = 0
 
         if args.cuda:
             loss, perp = evaluate(args.data + '/validation.txt', rnn, vocab, cuda=True)
@@ -245,6 +245,6 @@ def main(device):
     plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
 if __name__ == "__main__":
-    print "V3.1"
+    print "V3.3"
     device = torch.device("cuda" if args.cuda else "cpu")
     main(device)
