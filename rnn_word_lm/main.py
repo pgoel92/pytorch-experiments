@@ -118,7 +118,7 @@ def get_batch_continuous(text, batch_number, device):
     nwords = len(text)
     input_batch = torch.zeros(BPTT, args.bsz).type(torch.LongTensor).to(device)
     target_batch = torch.zeros(BPTT, args.bsz).type(torch.LongTensor).to(device)
-    for i in range(batch_size):
+    for i in range(args.bsz):
         line = text[i*BPTT:min(i*BPTT + BPTT + 1, nwords)]
         input, target = lineToIndices(line)
 	for j in range(BPTT):
@@ -200,8 +200,6 @@ def main(device):
         pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     rnn = model.RNNModel('LSTM', vocab_size, args.nhid, args.nhid, 2, 0.2).to(device)
-    #if args.cuda:
-    #    rnn.cuda()
     criterion = nn.CrossEntropyLoss()
 
     num_epochs = 40
@@ -215,11 +213,7 @@ def main(device):
         for i in range(num_batches):
             hidden = rnn.initHidden(args.bsz, device)
             input_batch, target_batch = get_batch_continuous(text, i, device)
-            #if args.cuda:
-            #    input_batch = input_batch.cuda()
-            #    target_batch = target_batch.cuda()
-            #    hidden = (hidden[0].cuda(), hidden[1].cuda())
-            train(rnn, hidden, criterion, learning_rate, input_batch, target_batch)
+            train(rnn, hidden, criterion, args.lr, input_batch, target_batch)
 
         elapsed = timeit.default_timer() - start_time
         print('##################')
@@ -242,6 +236,6 @@ def main(device):
     #plotTrainingVsDevLoss(training_loss, dev_loss, 'training_vs_dev_loss.png')
 
 if __name__ == "__main__":
-    print "V3.3"
+    print "V4.0"
     device = torch.device("cuda" if args.cuda else "cpu")
     main(device)

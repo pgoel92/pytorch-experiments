@@ -68,7 +68,7 @@ def readData(filename, max_vocab_size):
         vocab[word] = i
         i += 1
 
-    #words = replace_unknown(words)
+    words = replace_unknown(words, vocab)
 
     vocab['<unk>'] = i
     vocab_size = i + 1
@@ -78,14 +78,14 @@ def readData(filename, max_vocab_size):
 
     return words, vocab
 
-def is_unknown(word):
+def is_unknown(word, vocab):
     return word if word in vocab else '<unk>'
 
 def add_start_end(line):
     return '<start> ' + line + ' <end>'
 
-def replace_unknown(words):
-    return [is_unknown(word) for word in words]
+def replace_unknown(words, vocab):
+    return [is_unknown(word, vocab) for word in words]
 
 def get_batch_pytorch(source, i):
     seq_len = min(bptt, len(source) - 1 - i)
