@@ -24,10 +24,10 @@ def get_examples_with_token_count(filename, nr_tokens):
         token_lines = [line for line in lines if len(line.split()) == nr_tokens]
         return token_lines
 
-nr_tokens = 5
-nr_training = 50000
-nr_dev = 100
-nr_test = 500
+nr_tokens = 10 
+nr_training = 48000
+nr_dev = 12000
+nr_test = 15000
 
 training_files = get_training_filenames()
 heldout_files = get_heldout_filenames()
@@ -42,7 +42,7 @@ while not done:
         print "A"
         done = True
     examples = get_examples_with_token_count(filename, nr_tokens)
-    nr_required_examples = nr_training + nr_dev - count
+    nr_required_examples = nr_training + nr_dev + nr_test - count
     print nr_required_examples
     if nr_required_examples < len(examples):
         examples = examples[:nr_required_examples]
@@ -53,8 +53,12 @@ while not done:
         for e in examples:
             f.write(e + "\n")
 
-train_command = 'cat input.txt | head -' + str(nr_training) + ' > train.txt' 
-dev_command = 'cat input.txt | tail -' + str(nr_dev) + ' > dev.txt' 
-os.system(train_command)
+final_nr_test = count / 5
+final_nr_dev = (count - final_nr_test) / 5
+test_command = 'cat input.txt | head -' + str(final_nr_test) + ' > test.txt' 
+dev_command = 'cat input.txt | tail -' + str(final_nr_dev) + ' > validation.txt' 
+train_command = 'cat input.txt | tail -' + str(count - final_nr_test - final_nr_dev) + ' > train.txt' 
+os.system(test_command)
 os.system(dev_command)
+os.system(train_command)
 os.system('rm -rf input.txt')
